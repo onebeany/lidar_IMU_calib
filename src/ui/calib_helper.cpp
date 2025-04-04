@@ -61,6 +61,8 @@ CalibrHelper::CalibrHelper(ros::NodeHandle& nh)
     IO::LidarModelType lidar_model_type = IO::LidarModelType::VLP_16;
     if (lidar_model == "VLP_16") {
       lidar_model_type = IO::LidarModelType::VLP_16;
+    } else if (lidar_model == "MLX_120") {
+      lidar_model_type = IO::LidarModelType::MLX_120;
     } else {
       calib_step_ = Error;
       ROS_WARN("LiDAR model %s not support yet.", lidar_model.c_str());

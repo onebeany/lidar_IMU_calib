@@ -41,7 +41,8 @@ public:
 
   enum ModelType {
     VLP_16,
-    HDL_32E    // not support yet
+    HDL_32E,   // not support yet
+    MLX_120    // Added MLX-120 support
   };
 
   VelodyneCorrection(ModelType modelType = VLP_16) : m_modelType(modelType) {
@@ -151,26 +152,53 @@ public:
 
   void unpack_scan(const sensor_msgs::PointCloud2::ConstPtr &lidarMsg,
                    TPointCloud &outPointCloud) const {
-    VPointCloud temp_pc;
-    pcl::fromROSMsg(*lidarMsg, temp_pc);
-
     outPointCloud.clear();
     outPointCloud.header = pcl_conversions::toPCL(lidarMsg->header);
-    outPointCloud.height = temp_pc.height;
-    outPointCloud.width = temp_pc.width;
-    outPointCloud.is_dense = false;
-    outPointCloud.resize(outPointCloud.height * outPointCloud.width);
+    
+    if (m_modelType == ModelType::MLX_120) {
+      // Handle ML-X 120 data which has rgb instead of intensity
+      colorPointCloudT temp_pc;
+      pcl::fromROSMsg(*lidarMsg, temp_pc);
+      
+      outPointCloud.height = temp_pc.height;
+      outPointCloud.width = temp_pc.width;
+      outPointCloud.is_dense = false;
+      outPointCloud.resize(outPointCloud.height * outPointCloud.width);
 
-    double timebase = lidarMsg->header.stamp.toSec();
-    for (int h = 0; h < temp_pc.height; h++) {
-      for (int w = 0; w < temp_pc.width; w++) {
-        TPoint point;
-        point.x = temp_pc.at(w,h).x;
-        point.y = temp_pc.at(w,h).y;
-        point.z = temp_pc.at(w,h).z;
-        point.intensity = temp_pc.at(w,h).intensity;
-        point.timestamp = timebase + getExactTime(h,w);
-        outPointCloud.at(w,h) = point;
+      double timebase = lidarMsg->header.stamp.toSec();
+      for (int h = 0; h < temp_pc.height; h++) {
+        for (int w = 0; w < temp_pc.width; w++) {
+          TPoint point;
+          point.x = temp_pc.at(w,h).x;
+          point.y = temp_pc.at(w,h).y;
+          point.z = temp_pc.at(w,h).z;
+          // Set intensity to 0 or use rgb value if needed
+          point.intensity = 0.0;
+          point.timestamp = timebase + getExactTime(h,w);
+          outPointCloud.at(w,h) = point;
+        }
+      }
+    } else {
+      // Original code for VLP-16 and other LiDARs with intensity
+      VPointCloud temp_pc;
+      pcl::fromROSMsg(*lidarMsg, temp_pc);
+      
+      outPointCloud.height = temp_pc.height;
+      outPointCloud.width = temp_pc.width;
+      outPointCloud.is_dense = false;
+      outPointCloud.resize(outPointCloud.height * outPointCloud.width);
+
+      double timebase = lidarMsg->header.stamp.toSec();
+      for (int h = 0; h < temp_pc.height; h++) {
+        for (int w = 0; w < temp_pc.width; w++) {
+          TPoint point;
+          point.x = temp_pc.at(w,h).x;
+          point.y = temp_pc.at(w,h).y;
+          point.z = temp_pc.at(w,h).z;
+          point.intensity = temp_pc.at(w,h).intensity;
+          point.timestamp = timebase + getExactTime(h,w);
+          outPointCloud.at(w,h) = point;
+        }
       }
     }
   }

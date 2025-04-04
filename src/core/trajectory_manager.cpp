@@ -24,6 +24,7 @@
 #include <utils/ceres_callbacks.h>
 
 #include <memory>
+#include <chrono>  // Added for timing debug information
 
 namespace licalib {
 using namespace kontiki::trajectories;
@@ -63,10 +64,12 @@ void TrajectoryManager::initialSO3TrajWithGyro() {
 void TrajectoryManager::trajInitFromSurfel(
         SurfelAssociation::Ptr surfels_association,
         bool opt_time_offset_) {
+  std::cout << "[DEBUG] Starting batch optimization..." << std::endl;
   lidar_->set_relative_orientation(calib_param_manager->q_LtoI);
   lidar_->set_relative_position(calib_param_manager->p_LinI);
   lidar_->LockRelativeOrientation(false);
   lidar_->LockRelativePosition(false);
+  
   if (opt_time_offset_ && time_offset_padding_ > 0) {
     lidar_->LockTimeOffset(false);
     lidar_->set_max_time_offset(time_offset_padding_);
@@ -74,6 +77,7 @@ void TrajectoryManager::trajInitFromSurfel(
   else {
     lidar_->LockTimeOffset(true);
   }
+  
   imu_->LockGyroscopeBias(false);
   imu_->LockAccelerometerBias(false);
 
@@ -81,14 +85,23 @@ void TrajectoryManager::trajInitFromSurfel(
   estimator_split = std::make_shared<SplitTrajEstimator>(traj_);
 
   // add constraints
+  std::cout << "[DEBUG] Adding IMU and surfel measurements..." << std::endl;
   addGyroscopeMeasurements(estimator_split);
   addAccelerometerMeasurement(estimator_split);
+  
+  const auto& surfel_points = surfels_association->get_surfel_points();
+  std::cout << "[DEBUG] Processing " << surfel_points.size() << " surfel points" << std::endl;
   addSurfMeasurement(estimator_split, surfels_association);
 
-  // addCallback(estimator_split);
-
-  //printErrorStatistics("Before optimization");
+  std::cout << "[DEBUG] Running Ceres optimization (max 30 iterations)..." << std::endl;
+  auto start_time = std::chrono::high_resolution_clock::now();
+  
   ceres::Solver::Summary summary = estimator_split->Solve(30, false);
+  
+  auto end_time = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+  
+  std::cout << "[DEBUG] Optimization completed in " << duration << " seconds" << std::endl;
   std::cout << summary.BriefReport() << std::endl;
   printErrorStatistics("After optimization");
 
@@ -185,20 +198,39 @@ void TrajectoryManager::addSurfMeasurement(
   const double weight = calib_param_manager->global_opt_lidar_weight;
   surfelpoint_list_.clear();
   closest_point_vec_.clear();
-  for (auto const& v: surfel_association->get_surfel_planes()) {
+  
+  const auto& surfel_planes = surfel_association->get_surfel_planes();
+  for (auto const& v: surfel_planes) {
     closest_point_vec_.push_back(v.Pi);
   }
 
   map_time_ = surfel_association->get_maptime();
-  for (auto const &spoint : surfel_association->get_surfel_points()) {
+  
+  const auto& surfel_points = surfel_association->get_surfel_points();
+  
+  int point_counter = 0;
+  int progress_step = std::max(1, static_cast<int>(surfel_points.size() / 5)); // Report progress every 20%
+  
+  auto start_time = std::chrono::high_resolution_clock::now();
+  for (auto const &spoint : surfel_points) {
     double time = spoint.timestamp;
     size_t plane_id = spoint.plane_id;
+    
+    // Report progress occasionally
+    if (++point_counter % progress_step == 0) {
+      int progress_percent = (point_counter * 100) / surfel_points.size();
+      std::cout << "[DEBUG] Processing surfel points: " << progress_percent << "%" << std::endl;
+    }
 
     auto msp = std::make_shared<SurfMeasurement> (lidar_, spoint.point,
                                                   closest_point_vec_.at(plane_id).data(), time, map_time_, 5.0, weight);
     surfelpoint_list_.push_back(msp);
     estimator->template AddMeasurement<SurfMeasurement>(msp);
   }
+  
+  auto end_time = std::chrono::high_resolution_clock::now();
+  auto total_duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+  std::cout << "[DEBUG] Added " << surfelpoint_list_.size() << " surfel points in " << total_duration << " seconds" << std::endl;
 }
 
 template <typename TrajectoryModel>

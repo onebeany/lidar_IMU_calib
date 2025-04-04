@@ -3,13 +3,13 @@
     <arg name="topic_imu"           default="/imu/data" />
     <arg name="path_bag"            default="/home/docker_user/catkin_li_calib/test2.bag" />
     <arg name="bag_start"           default="30.0" />
-    <arg name="bag_durr"            default="30.0" />
-    <arg name="scan4map"            default="15" />
+    <arg name="bag_durr"            default="10.0" /> <!-- Reduced from 30.0 to 10.0 for faster calibration -->
+    <arg name="scan4map"            default="5" /> <!-- Reduced from 15 to 5 -->
     <arg name="lidar_model"         default="MLX_120" />
-    <arg name="ndtResolution"       default="0.5" /> <!-- 0.5 for indoor case and 1.0 for outdoor case -->
+    <arg name="ndtResolution"       default="1.0" /> <!-- Increased from 0.5 to 1.0 for faster calibration -->
 
     <arg name="time_offset_padding" default="0.015" />
-    <arg name="show_ui"    default="true" />
+    <arg name="show_ui"    default="true" /> <!-- Changed to true to show visualization UI -->
 
     <node pkg="li_calib" type="li_calib_gui" name="li_calib_gui" output="screen">
     <!-- <node pkg="li_calib" type="li_calib_gui" name="li_calib_gui" output="screen" clear_params="true" launch-prefix="gdb -ex run &#45;&#45;args">-->

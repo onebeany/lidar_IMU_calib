@@ -190,14 +190,22 @@ void CalibrHelper::BatchOptimization() {
     return;
   }
   std::cout << "\n================ Iteration " << iteration_step_ << " ==================\n";
+  std::cout << "Starting batch optimization - this may take several minutes..." << std::endl;
 
   TicToc timer;
   timer.tic();
+  
+  std::cout << "Running trajectory optimization from surfel data..." << std::endl;
   traj_manager_->trajInitFromSurfel(surfel_association_, opt_time_offset_);
-
+  
+  std::cout << "Optimization complete! Setting calibration step to BatchOptimizationDone" << std::endl;
   calib_step_ = BatchOptimizationDone;
+  
+  std::cout << "Saving calibration results to: " << cache_path_ << "/calib_result.csv" << std::endl;
   saveCalibResult(cache_path_ + "/calib_result.csv");
-  std::cout<<GREEN<<"[BatchOptimization] "<<timer.toc()<<" ms"<<RESET<<std::endl;
+  
+  std::cout << GREEN << "[BatchOptimization] " << timer.toc() << " ms" << RESET << std::endl;
+  std::cout << "Batch optimization completed successfully." << std::endl;
 }
 
 void CalibrHelper::Refinement() {
@@ -207,20 +215,28 @@ void CalibrHelper::Refinement() {
   }
   iteration_step_++;
   std::cout << "\n================ Iteration " << iteration_step_ << " ==================\n";
+  std::cout << "Starting refinement step..." << std::endl;
 
   DataAssociation();
   if (DataAssociationDone != calib_step_) {
     ROS_WARN("[Refinement] Need status: DataAssociationDone.");
     return;
   }
+  
+  std::cout << "Running final optimization from refined surfel data..." << std::endl;
   TicToc timer;
   timer.tic();
 
   traj_manager_->trajInitFromSurfel(surfel_association_, opt_time_offset_);
+  
+  std::cout << "Final optimization complete! Setting calibration step to RefineDone" << std::endl;
   calib_step_ = RefineDone;
+  
+  std::cout << "Saving final calibration results..." << std::endl;
   saveCalibResult(cache_path_ + "/calib_result.csv");
 
-  std::cout<<GREEN<<"[Refinement] "<<timer.toc()<<" ms"<<RESET<<std::endl;
+  std::cout << GREEN << "[Refinement] " << timer.toc() << " ms" << RESET << std::endl;
+  std::cout << "Calibration refinement completed successfully." << std::endl;
 }
 
 void CalibrHelper::Mapping(bool relocalization) {

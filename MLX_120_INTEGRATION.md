@@ -10,6 +10,8 @@ The original calibration system was designed for Velodyne LiDAR sensors (specifi
 - ML-X 120 has an RGB field instead of an intensity field
 - Different point cloud structure compared to VLP-16
 
+Additionally, there was an issue where the calibration process would get stuck at "Iteration 0" due to missing return statements in the IMU bias locking methods.
+
 ## Files Modified
 
 ### 1. `/home/docker_user/catkin_li_calib/src/lidar_IMU_calib/include/utils/dataset_reader.h`
@@ -228,6 +230,29 @@ There are some remaining deprecation warnings in the code related to PCL's API:
 
 These warnings do not affect functionality and could be addressed in a future code cleanup.
 
+## "Iteration 0" Bug Fix
+
+A critical issue was fixed in the Kontiki library which was causing the calibration to get stuck at "Iteration 0". The problem was found in:
+
+### `/home/docker_user/catkin_li_calib/src/lidar_IMU_calib/thirdparty/Kontiki/include/kontiki/sensors/constant_bias_imu.h`
+
+#### Changes:
+Added missing return statements to two methods:
+
+```cpp
+bool LockGyroscopeBias(bool lock) {
+  gyro_bias_locked_ = lock;
+  return true;  // Added missing return statement
+}
+
+bool LockAccelerometerBias(bool lock) {
+  acc_bias_locked_ = lock;
+  return true;  // Added missing return statement
+}
+```
+
+Without these return statements, the calibration process would appear to get stuck at the initial iteration because the IMU bias locking mechanism wasn't working correctly. This issue was identified in a GitHub issue on the original repository and has been fixed in this implementation.
+
 ## Conclusion
 
-These modifications successfully extend the LiDAR-IMU calibration system to work with ML-X 120 LiDAR data while maintaining backward compatibility with Velodyne LiDARs. The approach is modular and follows the existing code structure.
+These modifications successfully extend the LiDAR-IMU calibration system to work with ML-X 120 LiDAR data while maintaining backward compatibility with Velodyne LiDARs. The approach is modular and follows the existing code structure. Additionally, the fix for the "Iteration 0" bug should make the calibration process work properly for all LiDAR types.
